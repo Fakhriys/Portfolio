@@ -1,0 +1,133 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>M Fakhriy — Portfolio</title>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #111111;
+      font-family: Arial, sans-serif;
+    }
+
+    header {
+      padding: 45px 6%;
+      color: white;
+    }
+
+    header h1 {
+      font-size: clamp(28px, 5vw, 48px);
+      letter-spacing: -1.5px;
+    }
+
+    header p {
+      color: #999;
+      margin-top: 10px;
+    }
+
+    #portfolio {
+      width: 100%;
+      max-width: 1200px;
+      margin: auto;
+    }
+
+    #portfolio canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    footer {
+      color: #888;
+      text-align: center;
+      padding: 35px;
+      font-size: 12px;
+    }
+
+    #loading {
+      color: white;
+      text-align: center;
+      padding: 50px 20px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <h1>Fakhriy.</h1>
+    <p>Creative Production · Visual Storytelling · Digital Media</p>
+  </header>
+
+  <main>
+    <div id="loading">Loading portfolio...</div>
+    <div id="portfolio"></div>
+  </main>
+
+  <footer>
+    © 2026 M Fakhriy
+  </footer>
+
+  <script type="module">
+    import * as pdfjsLib from
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs";
+
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
+
+    const container = document.getElementById("portfolio");
+    const loading = document.getElementById("loading");
+
+    async function loadPortfolio() {
+      try {
+        const pdf = await pdfjsLib.getDocument("./portfolio.pdf").promise;
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const original = page.getViewport({ scale: 1 });
+
+          const scale = container.clientWidth / original.width;
+          const viewport = page.getViewport({ scale });
+
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+          const dpr = window.devicePixelRatio || 1;
+
+          canvas.width = viewport.width * dpr;
+          canvas.height = viewport.height * dpr;
+
+          canvas.style.width = "100%";
+          canvas.style.height = "auto";
+
+          container.appendChild(canvas);
+
+          await page.render({
+            canvasContext: ctx,
+            viewport,
+            transform: [dpr, 0, 0, dpr, 0, 0]
+          }).promise;
+        }
+
+        loading.remove();
+
+      } catch (error) {
+        loading.textContent =
+          "Unable to load portfolio. Please refresh the page.";
+        console.error(error);
+      }
+    }
+
+    loadPortfolio();
+  </script>
+
+</body>
+</html>
