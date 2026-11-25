@@ -4,7 +4,6 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
   <title>M Fakhriy — Portfolio</title>
 
   <style>
@@ -15,7 +14,7 @@
     }
 
     body {
-      background: #111111;
+      background: #111;
       font-family: Arial, sans-serif;
     }
 
@@ -40,10 +39,42 @@
       margin: auto;
     }
 
-    #portfolio canvas {
+    .pdf-page {
+      position: relative;
+      width: 100%;
+      line-height: 0;
+    }
+
+    .pdf-page canvas {
       display: block;
       width: 100%;
       height: auto;
+    }
+
+    .link-layer {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .link-layer a {
+      position: absolute;
+      display: block;
+      pointer-events: auto;
+      cursor: pointer;
+      background: transparent;
+    }
+
+    .link-layer a:hover {
+      outline: 2px solid rgba(255,255,255,0.35);
+      background: rgba(255,255,255,0.08);
+    }
+
+    #loading {
+      color: white;
+      text-align: center;
+      padding: 50px 20px;
     }
 
     footer {
@@ -53,10 +84,10 @@
       font-size: 12px;
     }
 
-    #loading {
-      color: white;
-      text-align: center;
-      padding: 50px 20px;
+    @media (max-width: 600px) {
+      header {
+        padding: 35px 20px 25px;
+      }
     }
   </style>
 </head>
@@ -73,9 +104,7 @@
     <div id="portfolio"></div>
   </main>
 
-  <footer>
-    © 2026 M Fakhriy
-  </footer>
+  <footer>© 2026 M Fakhriy</footer>
 
   <script type="module">
     import * as pdfjsLib from
@@ -89,40 +118,90 @@
 
     async function loadPortfolio() {
       try {
-        const pdf = await pdfjsLib.getDocument("./portfolio.pdf").promise;
+        const pdf = await pdfjsLib.getDocument({
+          url: "./portfolio.pdf"
+        }).promise;
 
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
-          const original = page.getViewport({ scale: 1 });
 
+          const original = page.getViewport({ scale: 1 });
           const scale = container.clientWidth / original.width;
           const viewport = page.getViewport({ scale });
+
+          const wrapper = document.createElement("div");
+          wrapper.className = "pdf-page";
+          wrapper.style.aspectRatio =
+            `${viewport.width} / ${viewport.height}`;
 
           const canvas = document.createElement("canvas");
           const ctx = canvas.getContext("2d");
           const dpr = window.devicePixelRatio || 1;
 
-          canvas.width = viewport.width * dpr;
-          canvas.height = viewport.height * dpr;
+          canvas.width = Math.round(viewport.width * dpr);
+          canvas.height = Math.round(viewport.height * dpr);
 
           canvas.style.width = "100%";
           canvas.style.height = "auto";
 
-          container.appendChild(canvas);
+          const links = document.createElement("div");
+          links.className = "link-layer";
+
+          wrapper.appendChild(canvas);
+          wrapper.appendChild(links);
+          container.appendChild(wrapper);
 
           await page.render({
             canvasContext: ctx,
             viewport,
             transform: [dpr, 0, 0, dpr, 0, 0]
           }).promise;
+
+          const annotations = await page.getAnnotations({
+            intent: "display"
+          });
+
+          for (const annotation of annotations) {
+            if (
+              annotation.subtype !== "Link" ||
+              (!annotation.url && !annotation.unsafeUrl)
+            ) continue;
+
+            const url = annotation.url || annotation.unsafeUrl;
+
+            if (!/^https?:\/\//i.test(url)) continue;
+
+            const rect = viewport.convertToViewportRectangle(
+              annotation.rect
+            );
+
+            const left = Math.min(rect[0], rect[2]);
+            const top = Math.min(rect[1], rect[3]);
+            const width = Math.abs(rect[2] - rect[0]);
+            const height = Math.abs(rect[3] - rect[1]);
+
+            const anchor = document.createElement("a");
+
+            anchor.href = url;
+            anchor.target = "_blank";
+            anchor.rel = "noopener noreferrer";
+            anchor.setAttribute("aria-label", "Open portfolio link");
+
+            anchor.style.left = `${left / viewport.width * 100}%`;
+            anchor.style.top = `${top / viewport.height * 100}%`;
+            anchor.style.width = `${width / viewport.width * 100}%`;
+            anchor.style.height = `${height / viewport.height * 100}%`;
+
+            links.appendChild(anchor);
+          }
         }
 
         loading.remove();
 
       } catch (error) {
+        console.error(error);
         loading.textContent =
           "Unable to load portfolio. Please refresh the page.";
-        console.error(error);
       }
     }
 
